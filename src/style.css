@@ -435,13 +435,17 @@ body {
 /* Theme toggle button */
 .theme-toggle,
 .task-remove,
-.task-add button {
+.task-add button,
+.search-clear,
+.engine-pill {
   outline: none;
 }
 
 .theme-toggle:focus-visible,
 .task-remove:focus-visible,
-.task-add button:focus-visible {
+.task-add button:focus-visible,
+.search-clear:focus-visible,
+.engine-pill:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

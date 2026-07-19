@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue" // ^ placeholder
+import { ref, onMounted, onUnmounted, computed } from "vue"
 import {
   initDb,
   getTasks,
@@ -39,7 +39,7 @@ function updateClock() {
   })
 }
 
-
+// --- Search ---
 const SEARCH_ENGINES = [
   { id: "google", name: "Google", searchUrl: "https://www.google.com/search?q=" },
   { id: "duckduckgo", name: "DuckDuckGo", searchUrl: "https://duckduckgo.com/?q=" },
@@ -51,12 +51,16 @@ const searchQuery = ref("")
 const searchEngineId = ref("google")
 const searchInputRef = ref(null)
 
-function currentEngine() {
-  return SEARCH_ENGINES.find((e) => e.id === searchEngineId.value) ?? SEARCH_ENGINES[0]
-}
+const currentEngine = computed(
+  () => SEARCH_ENGINES.find((e) => e.id === searchEngineId.value) ?? SEARCH_ENGINES[0]
+)
+
+const searchPlaceholder = computed(
+  () => `Search with ${currentEngine.value.name} or type a URL — press / to focus`
+)
 
 function isLikelyUrl(q) {
- 
+  // Looks like a URL if user typed a scheme OR has a domain-like dot pattern
   return /^https?:\/\//i.test(q) || /^[\w-]+\.[\w-]{2,}/.test(q)
 }
 
@@ -71,21 +75,22 @@ function performSearch() {
     window.location.href = href
     return
   }
-  window.location.href = currentEngine().searchUrl + encodeURIComponent(q)
+  window.location.href = currentEngine.value.searchUrl + encodeURIComponent(q)
+}
+
+function clearSearch() {
+  searchQuery.value = ""
+  searchInputRef.value?.focus()
 }
 
 function selectEngine(id) {
   searchEngineId.value = id
-  try {
-    localStorage.setItem(SEARCH_ENGINE_KEY, id)
-  } catch {
-    /* ignore quota errors */
-  }
+  localStorage.setItem(SEARCH_ENGINE_KEY, id)
   searchInputRef.value?.focus()
 }
 
 function onGlobalKeydown(e) {
-  
+  // Press "/" anywhere (outside form fields) to jump into the search bar
   const tag = document.activeElement?.tagName
   const isEditable =
     document.activeElement?.isContentEditable ||
@@ -99,7 +104,7 @@ function onGlobalKeydown(e) {
 }
 
 onMounted(async () => {
- 
+  // Theme
   const saved = localStorage.getItem(THEME_KEY)
   if (saved === "dark" || saved === "light") {
     applyTheme(saved === "dark")
@@ -107,23 +112,23 @@ onMounted(async () => {
     applyTheme(window.matchMedia("(prefers-color-scheme: dark)").matches)
   }
 
-  
+  // Clock
   clockTimer = setInterval(updateClock, 1000)
 
- 
+  // Search engine preference
   try {
     const storedEngine = localStorage.getItem(SEARCH_ENGINE_KEY)
     if (storedEngine && SEARCH_ENGINES.some((e) => e.id === storedEngine)) {
       searchEngineId.value = storedEngine
     }
   } catch {
-  
+    // Ignore private-mode read failures
   }
 
-
+  // "/" keyboard shortcut
   window.addEventListener("keydown", onGlobalKeydown)
 
-
+  // Local SQL database for tasks
   try {
     await initDb()
     tasks.value = getTasks()
@@ -160,7 +165,7 @@ function faviconUrl(url) {
   }
 }
 
-
+// Tasks — backed by local SQLite (sql.js + IndexedDB)
 const taskInput = ref("")
 const tasks = ref([])
 
@@ -257,7 +262,7 @@ async function removeTask(id) {
           ref="searchInputRef"
           v-model="searchQuery"
           type="text"
-          :placeholder="`Search with ${currentEngine().name} or type a URL — press / to focus`"
+          :placeholder="searchPlaceholder"
           aria-label="Search query"
           autocomplete="off"
           autocorrect="off"
@@ -268,7 +273,7 @@ async function removeTask(id) {
           v-if="searchQuery"
           type="button"
           class="search-clear"
-          @click="searchQuery = ''; searchInputRef?.focus()"
+          @click="clearSearch"
           aria-label="Clear search"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -277,13 +282,12 @@ async function removeTask(id) {
         </button>
         <kbd class="search-shortcut" aria-hidden="true">/</kbd>
       </form>
-      <div class="search-engines" role="tablist" aria-label="Search engine">
+      <div class="search-engines" role="group" aria-label="Search engine">
         <button
           v-for="engine in SEARCH_ENGINES"
           :key="engine.id"
           type="button"
-          role="tab"
-          :aria-selected="searchEngineId === engine.id"
+          :aria-pressed="searchEngineId === engine.id"
           :class="['engine-pill', { active: searchEngineId === engine.id }]"
           @click="selectEngine(engine.id)"
         >
@@ -292,9 +296,9 @@ async function removeTask(id) {
       </div>
     </section>
 
-
+    <!-- Widgets Section -->
     <section class="widgets">
-
+      <!-- Quick Links Card -->
       <div class="card">
         <h2>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -332,7 +336,7 @@ async function removeTask(id) {
         </div>
       </div>
 
-
+      <!-- Tasks Card -->
       <div class="card">
         <h2>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -382,6 +386,7 @@ async function removeTask(id) {
         </form>
       </div>
 
+      <!-- Notes Card -->
       <div class="card">
         <h2>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
