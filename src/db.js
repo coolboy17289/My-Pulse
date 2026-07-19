@@ -1,7 +1,4 @@
-// Local SQLite database for Pulse New Tab.
-// Runs entirely in the browser via sql.js (SQLite compiled to WebAssembly)
-// and persists to IndexedDB so the user's data survives reloads.
-// Schema is local-only — perfect for a static GitHub Pages deploy.
+
 
 import initSqlJs from "sql.js"
 import wasmUrl from "sql.js/dist/sql-wasm.wasm?url"
