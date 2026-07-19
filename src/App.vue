@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue"
+import { ref, onMounted, onUnmounted, computed } from "vue" // ^ placeholder
 import {
   initDb,
   getTasks,
@@ -39,8 +39,67 @@ function updateClock() {
   })
 }
 
+
+const SEARCH_ENGINES = [
+  { id: "google", name: "Google", searchUrl: "https://www.google.com/search?q=" },
+  { id: "duckduckgo", name: "DuckDuckGo", searchUrl: "https://duckduckgo.com/?q=" },
+  { id: "bing", name: "Bing", searchUrl: "https://www.bing.com/search?q=" },
+]
+const SEARCH_ENGINE_KEY = "pulse-search-engine"
+
+const searchQuery = ref("")
+const searchEngineId = ref("google")
+const searchInputRef = ref(null)
+
+function currentEngine() {
+  return SEARCH_ENGINES.find((e) => e.id === searchEngineId.value) ?? SEARCH_ENGINES[0]
+}
+
+function isLikelyUrl(q) {
+ 
+  return /^https?:\/\//i.test(q) || /^[\w-]+\.[\w-]{2,}/.test(q)
+}
+
+function performSearch() {
+  const q = searchQuery.value.trim()
+  if (!q) {
+    searchInputRef.value?.focus()
+    return
+  }
+  if (isLikelyUrl(q)) {
+    const href = /^https?:\/\//i.test(q) ? q : `https://${q}`
+    window.location.href = href
+    return
+  }
+  window.location.href = currentEngine().searchUrl + encodeURIComponent(q)
+}
+
+function selectEngine(id) {
+  searchEngineId.value = id
+  try {
+    localStorage.setItem(SEARCH_ENGINE_KEY, id)
+  } catch {
+    /* ignore quota errors */
+  }
+  searchInputRef.value?.focus()
+}
+
+function onGlobalKeydown(e) {
+  
+  const tag = document.activeElement?.tagName
+  const isEditable =
+    document.activeElement?.isContentEditable ||
+    tag === "INPUT" ||
+    tag === "TEXTAREA"
+  if (e.key === "/" && !isEditable) {
+    e.preventDefault()
+    searchInputRef.value?.focus()
+    searchInputRef.value?.select()
+  }
+}
+
 onMounted(async () => {
-  // Theme
+ 
   const saved = localStorage.getItem(THEME_KEY)
   if (saved === "dark" || saved === "light") {
     applyTheme(saved === "dark")
@@ -48,10 +107,23 @@ onMounted(async () => {
     applyTheme(window.matchMedia("(prefers-color-scheme: dark)").matches)
   }
 
-  // Clock
+  
   clockTimer = setInterval(updateClock, 1000)
 
-  // Local SQL database for tasks
+ 
+  try {
+    const storedEngine = localStorage.getItem(SEARCH_ENGINE_KEY)
+    if (storedEngine && SEARCH_ENGINES.some((e) => e.id === storedEngine)) {
+      searchEngineId.value = storedEngine
+    }
+  } catch {
+  
+  }
+
+
+  window.addEventListener("keydown", onGlobalKeydown)
+
+
   try {
     await initDb()
     tasks.value = getTasks()
@@ -62,6 +134,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer)
+  window.removeEventListener("keydown", onGlobalKeydown)
 })
 
 function toggleTheme() {
@@ -87,7 +160,7 @@ function faviconUrl(url) {
   }
 }
 
-// Tasks — backed by local SQLite (sql.js + IndexedDB)
+
 const taskInput = ref("")
 const tasks = ref([])
 
@@ -171,9 +244,57 @@ async function removeTask(id) {
       <p>{{ date }}</p>
     </section>
 
-    <!-- Widgets Section -->
+    <!-- Search Section -->
+    <section class="search" aria-label="Web search">
+      <form class="search-bar" @submit.prevent="performSearch">
+        <span class="search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </span>
+        <input
+          ref="searchInputRef"
+          v-model="searchQuery"
+          type="text"
+          :placeholder="`Search with ${currentEngine().name} or type a URL — press / to focus`"
+          aria-label="Search query"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+        <button
+          v-if="searchQuery"
+          type="button"
+          class="search-clear"
+          @click="searchQuery = ''; searchInputRef?.focus()"
+          aria-label="Clear search"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+        <kbd class="search-shortcut" aria-hidden="true">/</kbd>
+      </form>
+      <div class="search-engines" role="tablist" aria-label="Search engine">
+        <button
+          v-for="engine in SEARCH_ENGINES"
+          :key="engine.id"
+          type="button"
+          role="tab"
+          :aria-selected="searchEngineId === engine.id"
+          :class="['engine-pill', { active: searchEngineId === engine.id }]"
+          @click="selectEngine(engine.id)"
+        >
+          {{ engine.name }}
+        </button>
+      </div>
+    </section>
+
+
     <section class="widgets">
-      <!-- Quick Links Card -->
+
       <div class="card">
         <h2>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -211,7 +332,7 @@ async function removeTask(id) {
         </div>
       </div>
 
-      <!-- Tasks Card -->
+
       <div class="card">
         <h2>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -261,7 +382,6 @@ async function removeTask(id) {
         </form>
       </div>
 
-      <!-- Notes Card -->
       <div class="card">
         <h2>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
